@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <title>test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 14em;
+        }
+
+        .test-box,
+        .test-box>li {
+            padding: 0;
+            display: block;
+            border-top: 1px solid #aaa;
+            margin: 0.6em;
+        }
+
+        #output_value {
+            max-height: 50vh;
+            overflow-y: auto;
+
+        }
+    </style>
+</head>
+
+<body>
+    <script>exports = {}</script>
+    <script src="js/test.js" type="text/javascript"></script>
+    <ul class="test-box">
+        <li>
+            CSS value definition syntax
+            <textarea id="input_vds"></textarea>
+        </li>
+        <li>
+            Test data
+            <textarea id="input_csv"></textarea>
+        </li>
+        <li>
+            <button id="btn_output">
+                Output
+            </button>
+        </li>
+        <li id="output_value"></li>
+    </ul>
+    <script>
+        input_vds.value = test_vds;
+        input_csv.value = test_csv;
+        btn_output.onclick = function () {
+            var res = vdsParser(input_vds.value)(input_csv.value);
+            console.log(res);
+            output_value.innerText = res.found.map(
+                function (record) {
+                    return JSON.stringify(record)
+                }
+            ).join("\n");
+        }
+    </script>
+</body>
+
+</html>

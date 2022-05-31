@@ -1,0 +1,34 @@
+{
+  "name": "vdsor",
+  "version": "1.0.0",
+  "description": "A parser generator based on the MDN's \"CSS value definition syntax\"",
+  "main": "./dist/js/parser.js",
+  "private": false,
+  "license": "MIT",
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/FEFF01/vdsor"
+  },
+  "dependencies": {
+    "astry": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.16.7",
+    "@babel/preset-env": "^7.16.8",
+    "babel-loader": "^8.2.3",
+    "copy-webpack-plugin": "^10.2.0",
+    "glob": "^7.2.0",
+    "html-loader": "^3.1.0",
+    "ts-loader": "^9.2.6",
+    "typescript": "^4.5.4",
+    "webpack": "^5.66.0",
+    "webpack-cli": "^4.9.1",
+    "webpack-dev-server": "^4.7.3"
+  },
+  "scripts": {
+    "build": "webpack --config webpack/webpack.config.js",
+    "dev": "webpack-dev-server --progress --config webpack/webpack.config.dev.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}

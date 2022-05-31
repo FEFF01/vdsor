@@ -1,0 +1,2 @@
+declare const _default: "<track-size>+\nwhere \n<track-size> = <track-breadth> | minmax( <inflexible-breadth> , <track-breadth> ) | fit-content( [ <length> | <percentage> ] )\n\nwhere \n<track-breadth> = <length-percentage> | <flex> | min-content | max-content | auto\n<inflexible-breadth> = <length> | <percentage> | min-content | max-content | auto\n\nwhere \n<length-percentage> = <length> | <percentage>";
+export default _default;
