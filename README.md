@@ -5,6 +5,7 @@
 
 > `npm install vdsor` -> `npm i && npm run dev` -> `http://localhost:8080/` -> `F12`
 
+> [Test demo](https://feff01.github.io/vdsor/dist/)
 
 #### 利用 `vdsor` 构造一系列复杂 `CSS` 属性值解析器的简单例子：
 >* [test.ts](./js/test.ts)
@@ -39,7 +40,7 @@ for(const value of [
 }
 /*
     解析返回 MatchEnv 对象的实例，
-    其中 found 字段包含解析文本的主要数据,例如 "10px 100px / 120px" 得到：
+    其中 found 字段包含解析文本的主要数据,例如 "10px 100% / 120px" 得到：
     [
         [Symbol(DATA_TYPES_MARK), 'length-percentage', 0]
         [Symbol(DATA_TYPES_MARK), 'length', 0]

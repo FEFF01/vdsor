@@ -1,11 +1,17 @@
 {
   "name": "vdsor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A parser generator based on the MDN's \"CSS value definition syntax\"",
   "main": "./dist/js/parser.js",
   "private": false,
   "license": "MIT",
-  "keywords": [],
+  "keywords": [
+    "CSS value definition syntax",
+    "CSS",
+    "vds",
+    "parser",
+    "parser generator"
+  ],
   "repository": {
     "type": "git",
     "url": "git://github.com/FEFF01/vdsor"
