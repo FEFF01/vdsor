@@ -16,15 +16,10 @@ import {
 } from './utils'
 
 export {
-    MatchEnv,
     Pattern,
     buildAnalyzer, buildPattern,
     DATA_TYPES_MARK,
-    IAnalyzer,
-    IPattern,
-    IFound,
-    IMatchFunc,
-    IWalker
+    IAnalyzer
 }
 export default buildAnalyzer;
 
@@ -119,7 +114,7 @@ function parseStatement(
 function getQuotesLiteral(tokens: any): [string, IPosition, IPosition] {
     if (tokens instanceof Array) {
         const hack: Token = tokens[0];
-        
+
         const hackEnd: Token = tokens[tokens.length - 1];
         return [
             tokens.slice(1, -1).join(""),

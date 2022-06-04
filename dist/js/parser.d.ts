@@ -1,5 +1,5 @@
-import { MatchEnv, IPattern, IFound, IMatchFunc, IWalker } from './utils';
-export { MatchEnv, Pattern, buildAnalyzer, buildPattern, DATA_TYPES_MARK, IAnalyzer, IPattern, IFound, IMatchFunc, IWalker };
+import { MatchEnv, IPattern, IMatchFunc } from './utils';
+export { Pattern, buildAnalyzer, buildPattern, DATA_TYPES_MARK, IAnalyzer };
 export default buildAnalyzer;
 declare const DATA_TYPES_MARK: unique symbol;
 declare type ITokens = Array<any>;

@@ -6,5 +6,5 @@ import { MatchEnv, IPattern } from '../utils';
 import { IAnalyzer } from '../parser';
 export { getCachePattern, setSharingSyntax, getSharingAnalyzer };
 declare function getSharingAnalyzer(name: string): IAnalyzer;
-declare function setSharingSyntax(name: string, syntax: string): (env: string | MatchEnv | any[]) => MatchEnv;
+declare function setSharingSyntax(name: string, syntax: string): (env: string | any[] | MatchEnv) => MatchEnv;
 declare function getCachePattern(name: string): IPattern;

@@ -161,11 +161,6 @@ const DATA_TYPES_PATTERN_MAP: Record<string, IPattern> = {
 
 for (const [name, syntax] of SHARING_SYNTAXES) {
 
-    /* IFDEBUG */
-    if (DATA_TYPES_PATTERN_MAP[name]) {
-        debugger;
-    }
-    /* FIDEBUG */
 
     setSharingSyntax(name, syntax);
 }
