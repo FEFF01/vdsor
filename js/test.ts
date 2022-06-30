@@ -1,5 +1,5 @@
 
-import parser from './parser'
+import parser, { } from './parser'
 
 const TEST_TABLE: Record<string, [string, ...Array<string>]> = {
     "animation": [
@@ -281,11 +281,6 @@ where
         `italic 1.2em "Fira Sans", serif`,
         `small-caps bold 24px/1 sans-serif`
     ],
-    "grid": [
-        `<'grid-template'> | <'grid-template-rows'> / [ auto-flow && dense? ] <'grid-auto-columns'>? | [ auto-flow && dense? ] <'grid-auto-rows'>? / <'grid-template-columns'>`,
-        `auto-flow / 1fr 1fr 1fr`,
-        `repeat(3, 80px) / auto-flow`
-    ],
     "margin": [
         `[ <length> | <percentage> | auto ]{1,4}`,
         `10px 50px 20px 0`,
@@ -354,11 +349,14 @@ where
     ]
 
 };
+
 global.test_vds = TEST_TABLE.background[0];
 global.test_csv = TEST_TABLE.background[1];
 global.vdsParser = parser;
 
 test();
+//test();
+
 function test() {
 
     console.time("test");

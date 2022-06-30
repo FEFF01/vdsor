@@ -1,8 +1,8 @@
 import {
     Scanner, OPERATIONS, HOOK_MODE, IScanEnv,
     IPattern, Token,
-    IPosition, ISourceLocation,
-} from "astry"
+    IPosition, ISourceLocation, UseKey,
+} from 'astry'
 
 
 const {
@@ -19,10 +19,8 @@ const {
     MATCH_BEGIN,
     MATCH_END,
     MATCH_EOF,
-    MERGE_ALL_TOKENS,
-    UNFOLD
+    MERGE_ALL_TOKENS
 } = OPERATIONS;
-
 const MATCH_WHITE_SPACE_CHARACHER: IPattern = [` `, `\t`];  // 换行在这里作为断句符单独处理
 const CLEAR_WHITE_SPACE_CHARACHER: IPattern = [
     [NO_COLLECT, MATCH_WHITE_SPACE_CHARACHER]
@@ -111,6 +109,7 @@ const MATCH_STATEMENT_END = [
     [MATCH_EOF]
 ];
 
+
 export default new Scanner([
     [CLEAR_WHITE_SPACE_CHARACHER],
     [
@@ -128,20 +127,33 @@ export default new Scanner([
             [MATCH_DATA_TYPES],
             [MATCH_BRACKETS],
             [MATCH_CURLY_BRACES],
-            ",",
-            "&&",
-            "||",
-            "|",
             "*",
             "+",
             "?",
             "!",
-            "=",
+            [
+                [
+                    ",",
+                    "&&",
+                    "||",
+                    "|",
+                    "=",
+                ],
+                NO_COLLECT,
+                OPTION,
+                [
+                    [
+                        [` `, `\t`, `\n`],
+                        FORK_IN_PARENT
+                    ]
+                ]
+            ]
+
+
         ]
     ],
 
 ]);
-
 
 function parseNumber({ value }: Token) {
     if (value === "∞" || value === "+∞") {

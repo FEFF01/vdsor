@@ -1,3 +1,3 @@
-import { Scanner } from "astry";
+import { Scanner } from 'astry';
 declare const _default: Scanner;
 export default _default;

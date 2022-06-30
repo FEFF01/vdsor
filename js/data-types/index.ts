@@ -10,7 +10,9 @@ import {
     IPattern,
     IFound,
     IMatchFunc,
-    IWalker
+    IWalker,
+    matchUnits,
+    matchManyTimes,
 } from '../utils'
 import {
     IAnalyzer,
@@ -67,10 +69,29 @@ const DIMENSION_UNITS = LENGTH_UNITS.concat(
     RESOLUTION_UNITS
 );
 
+
 const DATA_TYPES_PATTERN_MAP: Record<string, IPattern> = {
     "an-plus-b": wrapPattern(),
     "angle": valuesPattern(ANGLE_UNITS),
+
     "custom-ident": pickStringPattern(function (name) {
+        /**
+         * https://drafts.csswg.org/css-values/#identifier-value
+         * 标准中有些关于 custom-ident 的自动并且扩散的 non-greedy 特性仅为肉眼理解便利，
+         * 实现中并不科学和造成冗余，
+         * 并且如果需要 non-greedy 特性可以通过简单的语法声明灵活支持，
+         * 这里决定不支持这些
+         * 
+         * 例如将：
+         `[ <family-name> | <generic-family> ]#
+where 
+<family-name> = <string> | <custom-ident>+
+<generic-family> = serif | sans-serif | cursive | fantasy | monospace`
+
+        * 第一行改成 ：[ <generic-family> | <family-name> ]#
+        *
+        */
+
         if (/^(_|\\|[a-zA-Z])(\w|-|\\)*/.test(name)) {   // 非标准
             return name;
         }
@@ -146,8 +167,12 @@ const DATA_TYPES_PATTERN_MAP: Record<string, IPattern> = {
         }
     }),
     "named-color": pickStringPattern(function (name) {
-        return COLOR_VALUE_MAP[name];
+        return COLOR_VALUE_MAP[name.toLowerCase()];
     }),
+    "system-color": lazyInitPattern(
+        "system-color",
+        VDS_SYNTAXES["deprecated-system-color"].syntax
+    ),
     "hash-token": wrapPattern(),
     "declaration-value": wrapPattern(),
     "lab()": wrapPattern(),
@@ -280,6 +305,7 @@ function pickStringPattern(match: (token: string, arg?: any) => any) {
         })
     )
 }
+
 
 
 function getValue(

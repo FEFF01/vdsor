@@ -1,9 +1,10 @@
 
-import { Token, IPosition, unwrapTokens } from "astry"
+import { Scanner, OPERATIONS, Token, IPosition, unwrapTokens } from 'astry';
 
-
-import vdsTokenizer from './vds-tokenizer'
-import cavTokenizer from './cav-tokenizer'
+import {
+    MATCH_CSS_ATTRIBUTE_VALUE,
+} from './css-grammar'
+import vdsTokenizer from './tokenizer'
 import { getCachePattern } from './data-types'
 import {
     getRange,
@@ -12,18 +13,16 @@ import {
     IPattern,
     IFound,
     IMatchFunc,
-    IWalker
+    IWalker,
+    matchUnits,
+    matchManyTimes,
 } from './utils'
 
 export {
-    Pattern,
-    buildAnalyzer, buildPattern,
-    DATA_TYPES_MARK,
-    IAnalyzer
+    Pattern, IAnalyzer, DATA_TYPES_MARK,
+    buildAnalyzer, buildPattern
 }
 export default buildAnalyzer;
-
-
 
 
 
@@ -37,6 +36,7 @@ const UNARY_OPERATOR_SET = new Set(["{}", "*", "+", "?", "#", "!"]);
 const BINARY_OPERATOR_LIST = ["=", "|", "||", "&&", ""/*, "[]"*/];  // 包含顺序信息（结合优先级）的列表
 const SPECIFIC_CASE_SET = new Set(["inherit", "initial", "unset"]);
 
+const cavTokenizer = new Scanner(MATCH_CSS_ATTRIBUTE_VALUE);
 
 const POLYFILL_WALK_FUNC: IMatchFunc = function (env, isFinal) {
     return env.isSuccess(isFinal, 0);
@@ -45,10 +45,10 @@ const POLYFILL_WALK_FUNC: IMatchFunc = function (env, isFinal) {
 
 
 
-function buildAnalyzer(syntax: string | IPattern): IAnalyzer {
+function buildAnalyzer(syntax: string | IPattern, outMap?: Map<string, Pattern>): IAnalyzer {
 
     const pattern = typeof syntax === "string"
-        ? buildPattern(syntax)
+        ? buildPattern(syntax, outMap)
         : syntax;
 
     const match = pattern.walker(null);
@@ -75,37 +75,43 @@ function buildAnalyzer(syntax: string | IPattern): IAnalyzer {
     }
 }
 
-function buildPattern(syntax: string): Pattern {
-    const tokens = vdsTokenizer.scan(syntax).tokens;
-    const map: Map<string, Pattern> = new Map();
+function buildPattern(syntax: string, outMap: Map<string, Pattern> = new Map()) {
 
+    const tokens = vdsTokenizer.scan(syntax).tokens;
+
+    const refMap: Map<string, Pattern> = new Map();
 
     for (let i = tokens.length - 1; i >= 0; i -= 1) {
-        parseStatement(tokens[i], map);
+        const token = tokens[i];
+        const firstToken = token[0];
+        if (
+            token.length === 1
+            && firstToken instanceof Token
+            && firstToken.value === "where"
+        ) {
+            continue;
+        }
+        parseStatement(token, refMap, outMap);
     }
-    return map.get("");
+    return outMap.get(Array.from(outMap.keys()).pop()); // 最后一个元素
+    //return outMap.values().next().value;
 }
 
 function parseStatement(
     statement: Array<any>,
-    map: Map<string, IPattern>
+    refMap: Map<string, IPattern>,
+    outMap: Map<string, IPattern>
 ): IPattern {
-    if (
-        statement.length === 1
-        && statement[0] instanceof Token
-    ) {
-        return;
-    }
-    let pattern = parsePattern(statement, map);
+    let pattern = parsePattern(statement, refMap, outMap);
 
     if (!(pattern instanceof EqualSign)) {
         const id = "";
-        if (map.has(id)) {
+        if (outMap.has(id)) {
             pattern = new SingleBar(
-                new ExclamationPoint(map.get(id))
+                new ExclamationPoint(outMap.get(id))
             ).add(pattern);
         }
-        map.set(id, pattern);
+        outMap.set(id, pattern);
     }
 
     return pattern;
@@ -126,7 +132,8 @@ function getQuotesLiteral(tokens: any): [string, IPosition, IPosition] {
 
 function parsePattern(
     tokens: Array<any>,
-    patternMap: Map<string, IPattern>
+    refMap: Map<string, IPattern>,
+    outMap: Map<string, IPattern>
 ): IPattern {
     const units: [IPattern?, ...any] = [];
     let pattern: IPattern
@@ -176,7 +183,7 @@ function parsePattern(
             }
 
         } else if (!pattern) {
-            pattern = parseUnitPattern(token, patternMap);
+            pattern = parseUnitPattern(token, refMap, outMap);
         } else {
             let op = token.value;
             if (isUnaryOperator(op)) {
@@ -211,7 +218,8 @@ function parsePattern(
                     <Pattern>units[maxi - 1],
                     units[maxi][0],
                     <Pattern>units[maxi + 1],
-                    patternMap
+                    refMap,
+                    outMap
                 )
             );
             //maxi -= 2;
@@ -229,7 +237,7 @@ function isBinaryOperator(op: string) {
 
 
 abstract class Pattern implements IPattern {
-    match(env: MatchEnv, isFinal: boolean, arg: any) {
+    match?(env: MatchEnv, isFinal: boolean, arg: any): boolean | void {
         return false;
     }
     walker(next: IMatchFunc): IMatchFunc {
@@ -241,10 +249,19 @@ abstract class Pattern implements IPattern {
 
 class BinaryPattern extends Pattern {
     units: Array<IPattern>;
-    constructor(pattern: IPattern) {
+    constructor(
+        public pattern: Pattern,
+        protected refMap?: Map<string, IPattern>,
+        protected outMap?: Map<string, IPattern>
+    ) {
         super();
         this.units = [pattern];
     }
+    /*
+    constructor(pattern: IPattern) {
+        super();
+        this.units = [pattern];
+    }*/
     add(pattern: IPattern) {
         this.units.push(pattern);
         return this;
@@ -329,63 +346,6 @@ class DoubleBar extends BinaryPattern {
         return matchUnits(next, this.units, false);
     }
 }
-function matchUnits(next: IMatchFunc, patterns: Array<IPattern>, useMatchAll: boolean): IMatchFunc {
-
-    const matches = patterns.map(pattern => pattern.walker(null));
-    const indexs = matches.map((_, index) => index);
-
-    const comMatches = next && patterns.map(pattern => pattern.walker(next));
-
-    return function (env: MatchEnv, isFinal: boolean) {
-        let maxIndex: number;
-        let maxRecord: IFound;
-        const res = env.found;
-        env.found = [];
-
-        walk(indexs);
-        env.found = res;
-        if (maxRecord) {
-            res.push(...maxRecord);
-            env.index = maxIndex;
-            return true;
-        }
-
-        function walk(indexs: Array<number>) {
-            const state = env.store();
-            const length = indexs.length;
-            for (let i = 0; i < length; i += 1) {
-                const index = indexs[i];
-
-                if (!matches[index](env, false)) {
-                    continue;
-                }
-                if (length > 1 && walk(indexs.slice(0, i).concat(indexs.slice(i + 1)))) {
-                    return true;
-                }
-
-                if ((useMatchAll && length > 1)) {
-                    env.restore(state);
-                    continue;
-                }
-                if (comMatches || isFinal) {
-                    env.restore(state);
-                    if (!(comMatches || matches)[index](env, isFinal)) {
-                        continue;
-                    }
-                }
-
-                if (env.compareIndex(maxIndex) < 0) {
-                    maxRecord = env.found.slice();
-                    maxIndex = env.index;
-                    if (env.isSuccess(true, 0)) {
-                        return true;
-                    }
-                }
-                env.restore(state);
-            }
-        }
-    }
-}
 
 
 class SingleBar extends BinaryPattern {
@@ -448,20 +408,18 @@ class SingleBar extends BinaryPattern {
 
 }
 class EqualSign extends BinaryPattern {
-    constructor(public pattern: Pattern, private map: Map<string, IPattern>) {
-        super(pattern);
-    }
-    private getIdent(pattern: IPattern) {
-        if (pattern instanceof Refer) {
-            return pattern.name;
-        }
-        debugger;
-    }
+
     add(pattern: IPattern) {
-        const units = this.units;
-        const map = this.map;
+        const { units, refMap, outMap } = this;
+
         for (const id of units) {
-            map.set(this.getIdent(id), pattern);
+            if (id instanceof Refer) {
+                refMap.set(id.name, pattern);
+            } else if (id instanceof Value) {
+                outMap.set(id.data, pattern);
+            } else {
+                debugger;
+            }
         }
         units.push(pattern);
         return this;
@@ -483,32 +441,52 @@ function parseBinaryPattern(
     left: IPattern | BinaryPattern,
     op: string,
     right: IPattern,
-    map: Map<string, IPattern>
+    refMap: Map<string, IPattern>,
+    outMap: Map<string, IPattern>
 ) {
     const Wrapper = BINARY_PATTERN_MAP[op];
+
     if (!(left instanceof Wrapper)) {
-        left = new Wrapper(left, map);
+        left = new Wrapper(left, refMap, outMap);
     }
     (<BinaryPattern>left).add(right);
     return left;
 }
 
 class UnaryPattern extends Pattern {
-    constructor(public pattern: IPattern, arg2?: any) { super(); }
+    nonGreedy?: boolean;
+    constructor(protected pattern: IPattern, arg2?: any) { super(); }
 }
 class Asterisk extends UnaryPattern {
     walker(next: IMatchFunc) {
-        return matchManyTimes(next, this.pattern, 0, Number.MAX_SAFE_INTEGER);
+        return matchManyTimes(next, this.pattern, 0, Number.MAX_SAFE_INTEGER, this.nonGreedy);
     }
 }
 class PlusSign extends UnaryPattern {
     walker(next: IMatchFunc) {
-        return matchManyTimes(next, this.pattern, 1, Number.MAX_SAFE_INTEGER);
+        return matchManyTimes(next, this.pattern, 1, Number.MAX_SAFE_INTEGER, this.nonGreedy);
     }
 }
 class QuestionMark extends UnaryPattern {
+    nonGreedy = true;
+    constructor(protected pattern: IPattern, arg2?: any) {
+        super(pattern, arg2);
+        switch (true) {
+            case pattern instanceof Asterisk:
+            case pattern instanceof PlusSign:
+            case pattern instanceof CurlyBraces:
+            case pattern instanceof HashMark:
+                //this.nonGreedy = false;
+                (<UnaryPattern>pattern).nonGreedy = true;
+                break;
+        }
+    }
     walker(next: IMatchFunc) {
-        return matchManyTimes(next, this.pattern, 0, 1);
+        /*if (!this.nonGreedy) {
+            return this.pattern.walker(next);
+        }*/
+        return matchManyTimes(next, this.pattern, 0, 1, this.nonGreedy);
+
     }
 }
 
@@ -521,76 +499,10 @@ class CurlyBraces extends UnaryPattern {
         }
     }
     walker(next: IMatchFunc) {
-        return matchManyTimes(next, this.pattern, this.range[0], this.range[1]);
+        return matchManyTimes(next, this.pattern, this.range[0], this.range[1], this.nonGreedy);
     }
 }
-function matchManyTimes(
-    next: IMatchFunc,
-    pattern: IPattern,
-    min: number,
-    max: number
-): IMatchFunc {
-    const match = pattern.walker(null);
 
-    if (next) {
-        const comMatch = pattern.walker(next);
-        return function (env, isFinal) {
-
-            return walk(0);
-
-            function walk(step: number) {
-                const state = env.store();
-                if (step < max) {
-                    if (match(env, false)) {
-                        if (
-                            walk(step + 1)
-                            || (
-                                env.restore(state)
-                                , step >= min - 1
-                                && comMatch(env, isFinal)
-                            )
-                        ) {
-                            return true;
-                        }
-                    }
-                }
-                if (step >= min && next(env, isFinal)) {
-                    return true;
-                }
-            }
-        }
-    } else {
-        return function (env, isFinal) {
-            return walk(0);
-
-            function walk(step: number) {
-                if (step < max) {
-                    const state = env.store();
-                    if (match(env, false)) {
-                        if (
-                            walk(step + 1)
-                            || (
-                                env.restore(state),
-                                isFinal
-                                && step >= min - 1
-                                && match(env, true)
-                            )
-                        ) {
-                            return true;
-                        }
-                    }
-                }
-                if (step >= min && env.isSuccess(isFinal, 0)) {
-                    return true;
-                }
-            }
-        }
-
-    }
-
-
-
-}
 
 class HashMark extends UnaryPattern {
     range: [number, number] = [1, Number.MAX_SAFE_INTEGER];
@@ -648,6 +560,7 @@ class Refer extends Pattern {
     name: string;
     range?: [number, number];
     useQuote?: boolean;
+    useCachePattern: boolean;
     constructor(
         { name, range, useQuote }: {
             name: string,
@@ -662,6 +575,7 @@ class Refer extends Pattern {
         if (pattern) {
             this.pattern = pattern;
         } else {
+            this.useCachePattern = true;
             Object.defineProperty(this, "pattern", {
                 get() {
                     return pattern || (pattern = getCachePattern(name));
@@ -724,10 +638,11 @@ class Group extends Pattern {
     pattern: IPattern;
     constructor(
         { content }: { content: Array<any> },
-        patternMap: Map<string, IPattern>
+        refMap: Map<string, IPattern>,
+        outMap: Map<string, IPattern>
     ) {
         super();
-        this.pattern = parsePattern(content, patternMap);
+        this.pattern = parsePattern(content, refMap, outMap);
     }
     walker(next: IMatchFunc) {
         return this.pattern.walker(next);
@@ -764,12 +679,12 @@ class Values extends Pattern {
         }
     }
 }
-function parseUnitPattern(token: any, patternMap: Map<string, IPattern>): Pattern {
+function parseUnitPattern(token: any, refMap: Map<string, IPattern>, outMap: Map<string, IPattern>): Pattern {
     switch (token.type) {
         case "DataTypes":
-            return new Refer(token, patternMap);
+            return new Refer(token, refMap);
         case "Brackets":
-            return new Group(token, patternMap);
+            return new Group(token, refMap, outMap);
         default:
             return new Value(token);
     }

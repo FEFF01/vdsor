@@ -2,7 +2,7 @@ import {
     Scanner, OPERATIONS, HOOK_MODE, IScanEnv,
     IPattern, Token,
     IPosition, ISourceLocation,
-} from "astry"
+} from 'astry'
 
 
 const {
@@ -22,7 +22,6 @@ const {
     MERGE_ALL_TOKENS,
     UNFOLD
 } = OPERATIONS;
-
 
 
 
@@ -77,7 +76,7 @@ const MATCH_URL: IPattern = [
     ]
 ];
 
-export default new Scanner([
+const MATCH_CSS_ATTRIBUTE_VALUE: IPattern = [
     [
         MARK_AS_ROOT,
         [
@@ -86,7 +85,7 @@ export default new Scanner([
             [
                 // 使能在 ( 后被断句
                 // 这里没做额外检验允许括号前的空格
-                MERGE_ALL_TOKENS,
+                MERGE_ALL_TOKENS,  
                 prev(null, true), "("
             ],
             ")",
@@ -101,4 +100,8 @@ export default new Scanner([
             ","
         ]
     ]
-])
+]
+
+export {
+    MATCH_CSS_ATTRIBUTE_VALUE,
+}

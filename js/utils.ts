@@ -1,11 +1,6 @@
 
 
 type IMatchFunc = (env: MatchEnv, isFinal: boolean, arg?: any) => boolean | void;
-/**
- * 0 为 DATA_TYPES_MARK 标记或者任意匹配字符串解析数据
- * 1 为 data types 的 key 值，或者匹配目标字符串
- * 2 为匹配目标的结束下标
- */
 type IFound = Array<[any, string, number]>;
 
 type IWalker = (next: IMatchFunc) => IMatchFunc;
@@ -22,9 +17,156 @@ export {
     IPattern,
     IFound,
     IMatchFunc,
-    IWalker
+    IWalker,
+    matchUnits,
+    matchManyTimes,
+}
+function matchUnits(next: IMatchFunc, patterns: Array<IPattern>, useMatchAll: boolean): IMatchFunc {
+
+    const matches = patterns.map(pattern => pattern.walker(null));
+    const indexs = matches.map((_, index) => index);
+
+    const comMatches = next && patterns.map(pattern => pattern.walker(next));
+
+    return function (env: MatchEnv, isFinal: boolean) {
+        let maxIndex: number;
+        let maxRecord: IFound;
+        const res = env.found;
+        env.found = [];
+
+        walk(indexs);
+        env.found = res;
+        if (maxRecord) {
+            res.push(...maxRecord);
+            env.index = maxIndex;
+            return true;
+        }
+
+        function walk(indexs: Array<number>) {
+            const state = env.store();
+            const length = indexs.length;
+            for (let i = 0; i < length; i += 1) {
+                const index = indexs[i];
+
+                if (!matches[index](env, false)) {
+                    continue;
+                }
+                if (length > 1 && walk(indexs.slice(0, i).concat(indexs.slice(i + 1)))) {
+                    return true;
+                }
+
+                if ((useMatchAll && length > 1)) {
+                    env.restore(state);
+                    continue;
+                }
+                if (comMatches || isFinal) {
+                    env.restore(state);
+                    if (!(comMatches || matches)[index](env, isFinal)) {
+                        continue;
+                    }
+                }
+
+                if (env.compareIndex(maxIndex) < 0) {
+                    maxRecord = env.found.slice();
+                    maxIndex = env.index;
+                    if (env.isSuccess(true, 0)) {
+                        return true;
+                    }
+                }
+                env.restore(state);
+            }
+        }
+    }
 }
 
+function matchManyTimes(
+    next: IMatchFunc,
+    pattern: IPattern,
+    min: number,
+    max: number,
+    nonGreedy?: boolean
+): IMatchFunc {
+    const match = pattern.walker(null);
+
+    if (next) {
+        const comMatch = pattern.walker(next);
+
+        return !nonGreedy
+            ? function (env, isFinal) {
+
+                return walk(0);
+
+                function walk(step: number) {
+                    const state = env.store();
+                    if (step < max) {
+                        if (match(env, false)) {
+                            if (
+                                walk(step + 1)
+                                || (
+                                    env.restore(state)
+                                    , step >= min - 1
+                                    && comMatch(env, isFinal)
+                                )
+                            ) {
+                                return true;
+                            }
+                        }
+                    }
+                    if (step >= min && next(env, isFinal)) {
+                        return true;
+                    }
+                }
+            }
+            : function (env, isFinal) {
+                if (min <= 0 && next(env, isFinal)) {
+                    return true;
+                }
+                if (max > 0) {
+                    const state = env.store();
+                    let step = 1;
+                    while (true) {
+                        if (step >= min && comMatch(env, isFinal)) {
+                            return true;
+                        }
+                        if (++step > max || !match(env, false)) {
+                            break;
+                        }
+                    }
+                    env.restore(state);
+                }
+            }
+    } else {
+        return function (env, isFinal) {
+            return walk(0);
+
+            function walk(step: number) {
+                if (step < max) {
+                    const state = env.store();
+                    if (match(env, false)) {
+                        if (
+                            walk(step + 1)
+                            || (
+                                env.restore(state),
+                                isFinal
+                                && step >= min - 1
+                                && match(env, true)
+                            )
+                        ) {
+                            return true;
+                        }
+                    }
+                }
+                if (step >= min && env.isSuccess(isFinal, 0)) {
+                    return true;
+                }
+            }
+        }
+
+    }
+
+
+
+}
 
 function walker(match: IMatchFunc) {
     return function (next: IMatchFunc): IMatchFunc {
